@@ -1,0 +1,7 @@
+;$Id$
+
+name = Outgoing Webhooks
+description = Outgoing webhooks handler.
+core = 7.x
+
+files[] = webout.module

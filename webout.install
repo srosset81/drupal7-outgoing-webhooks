@@ -1,0 +1,35 @@
+<?php
+
+/**
+ * Implements hook_schema().
+ */
+function webout_schema() {
+  $schemas = array();
+
+  $schemas['webhook'] = array(
+    'description' => 'Outgoing webhooks',
+    'fields' => array(
+      'whid' => array(
+        'description' => 'The primary identifier for a webhook.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'url' => array(
+        'description' => 'URL where to post the data.',
+        'type' => 'text',
+        'not null' => TRUE
+      ),
+      'format' => array(
+        'description' => 'Data format.',
+        'type' => 'varchar',
+        'length' => 20,
+        'not null' => TRUE,
+        'default' => 'raw',
+      )
+    ),
+    'primary key' => array('whid')
+  );
+
+  return $schemas;
+}

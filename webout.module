@@ -1,0 +1,197 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function webout_menu() {
+    $items = array();
+
+    $items['admin/config/services/webout'] = array(
+        'title' => 'Outgoing webhooks',
+        'description' => 'Configuration for the outgoing webhooks',
+        'page callback' => 'webout_configure',
+        'access arguments' => array('administer users'),
+        'type' => MENU_NORMAL_ITEM
+    );
+
+    $items['admin/config/services/webout/add'] = array(
+        'title' => 'Add new webhook',
+        'page callback' => 'webout_add',
+        'access arguments' => array('administer users'),
+        'type' => MENU_LOCAL_TASK,
+        'access callback' => TRUE,
+        'weight' => 0
+    );
+
+    $items['admin/config/services/webout/%/edit'] = array(
+        'title' => 'Edit a webhook',
+        'page callback' => 'webout_edit',
+        'page arguments' => array(4),
+        'access arguments' => array('administer users'),
+        'type' => MENU_CONTEXT_NONE
+    );
+
+    $items['admin/config/services/webout/%/delete'] = array(
+        'title' => 'Delete a webhook',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('webout_delete_confirm', 4),
+        'access arguments' => array('administer users'),
+        'type' => MENU_CONTEXT_NONE
+    );
+
+    return $items;
+}
+
+function webout_entity_info() {
+    $entities = array();
+
+    $entities['webhook'] = array(
+        'label' => t('Webhook'),
+        'base table' => 'webhook',
+        'entity keys' => array(
+            'id' => 'whid',
+        )
+    );
+
+    return $entities;
+}
+
+function webout_configure() {
+    $header = array(
+        t('URL'),
+        t('Format'),
+        array('data' => t('Operations'), 'colspan' => 2),
+    );
+
+    $rows = array();
+    $webhooks = entity_load('webhook');
+
+    if (!count($webhooks)) {
+        $rows[] = array(
+            array(
+                'data' => t('No webhooks. !create', array('!create' => l('Create a webhook.', 'admin/config/services/webout/add'))),
+                'colspan' => 4,
+            ),
+        );
+    }
+    else {
+        foreach ($webhooks as $webhook) {
+            $row = array(
+                check_plain($webhook->url),
+                check_plain($webhook->format),
+                l(t('Edit'), "admin/config/services/webout/{$webhook->whid}/edit"),
+                l(t('Delete'), "admin/config/services/webout/{$webhook->whid}/delete"),
+            );
+            $rows[] = $row;
+        }
+    }
+
+    return theme('table', array('header' => $header, 'rows' => $rows));
+}
+
+function webout_add() {
+    $webhook = (object) array( 'whid' => '', 'url' => '', 'format' => 'raw' );
+
+    return drupal_get_form('webout_form', $webhook);
+}
+
+function webout_edit($webhook_id) {
+    $webhooks = entity_load('webhook', array($webhook_id));
+    drupal_set_title(t('Edit webhook #@id', array('@id' => $webhook_id)));
+
+    if( count($webhooks)===0 ) {
+        exit('Unknown webhook');
+    } else {
+        return drupal_get_form('webout_form', $webhooks[$webhook_id]);
+    }
+}
+
+function webout_delete_confirm($form, &$form_state, $webhook_id) {
+
+    return confirm_form($form,
+        t('Are you sure you want to delete this webhook ?'),
+        'admin/config/services/webout/' . $webhook_id . '/delete',
+        t('This action cannot be undone.'),
+        t('Delete'),
+        t('Cancel')
+    );
+}
+
+function webout_delete_confirm_submit($form, &$form_state) {
+    if( $form_state['values']['confirm'] ) {
+        $webhook_id = $form_state['build_info']['args'][0];
+        $webhooks = entity_load('webhook', array($webhook_id));
+
+        if( count($webhooks)===0 ) {
+            exit('Unknown webhook');
+        } else {
+            db_delete('webhook')
+                ->condition('whid', $webhook_id)
+                ->execute();
+
+            drupal_set_message('The webhook has been deleted');
+        }
+    }
+
+    $form_state['redirect'] = 'admin/config/services/webout';
+}
+
+/**
+ * Form for adding or editing a webhook.
+ */
+function webout_form($form, &$form_state, $webhook)
+{
+    $form['#webhook'] = $webhook;
+    $form_state['webhook'] = $webhook;
+
+    $form['whid'] = array(
+        '#type' => 'value',
+        '#value' => $webhook->whid
+    );
+
+    $form['url'] = array(
+        '#type' => 'textfield',
+        '#title' => t('URL'),
+        '#description' => t('The outgoing webhook to post data to.'),
+        '#default_value' => $webhook->url,
+        '#placeholder' => 'https://',
+        '#maxlength' => 100,
+        '#required' => TRUE,
+    );
+
+    $form['format'] = array(
+        '#type' => 'select',
+        '#title' => t('Format'),
+        '#default_value' => $webhook->format,
+        '#options' => [
+            'raw' => t('Raw')
+        ],
+        '#required' => TRUE,
+        '#description' => t('Select a data format.'),
+    );
+
+    $form['submit'] = array(
+        '#type' => 'submit',
+        '#value' => t('Submit')
+    );
+
+    return $form;
+}
+
+function webout_form_submit($form, &$form_state)
+{
+    $webhook = &$form_state['webhook'];
+
+    $webhook->url = $form_state['values']['url'];
+    $webhook->format = $form_state['values']['format'];
+
+    if( $webhook->whid ) {
+        drupal_write_record('webhook', $webhook, 'whid');
+        drupal_set_message('The webhook has been edited');
+    } else {
+        drupal_write_record('webhook', $webhook);
+        drupal_set_message('The webhook has been added');
+    }
+
+    $form_state['redirect'] = 'admin/config/services/webout';
+}
