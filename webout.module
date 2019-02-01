@@ -11,6 +11,7 @@ function webout_menu() {
         'description' => 'Configuration for the outgoing webhooks',
         'page callback' => 'webout_configure',
         'access arguments' => array('administer users'),
+        'access callback' => TRUE,
         'type' => MENU_NORMAL_ITEM
     );
 
@@ -18,7 +19,7 @@ function webout_menu() {
         'title' => 'Add new webhook',
         'page callback' => 'webout_add',
         'access arguments' => array('administer users'),
-        'type' => MENU_LOCAL_TASK,
+        'type' => MENU_LOCAL_ACTION,
         'access callback' => TRUE,
         'weight' => 0
     );
@@ -28,6 +29,7 @@ function webout_menu() {
         'page callback' => 'webout_edit',
         'page arguments' => array(4),
         'access arguments' => array('administer users'),
+        'access callback' => TRUE,
         'type' => MENU_CONTEXT_NONE
     );
 
@@ -56,25 +58,20 @@ function webout_entity_info() {
     return $entities;
 }
 
-function webout_configure() {
-    $header = array(
-        t('URL'),
-        t('Format'),
-        array('data' => t('Operations'), 'colspan' => 2),
-    );
-
-    $rows = array();
+function webout_configure()
+{
     $webhooks = entity_load('webhook');
 
     if (!count($webhooks)) {
-        $rows[] = array(
-            array(
-                'data' => t('No webhooks. !create', array('!create' => l('Create a webhook.', 'admin/config/services/webout/add'))),
-                'colspan' => 4,
-            ),
+        return '';
+    } else {
+        $rows = array();
+        $header = array(
+            t('URL'),
+            t('Format'),
+            array('data' => t('Operations'), 'colspan' => 2),
         );
-    }
-    else {
+
         foreach ($webhooks as $webhook) {
             $row = array(
                 check_plain($webhook->url),
@@ -84,9 +81,9 @@ function webout_configure() {
             );
             $rows[] = $row;
         }
-    }
 
-    return theme('table', array('header' => $header, 'rows' => $rows));
+        return theme('table', array('header' => $header, 'rows' => $rows));
+    }
 }
 
 function webout_add() {
